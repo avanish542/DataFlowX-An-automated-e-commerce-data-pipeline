@@ -6,8 +6,7 @@ with dbt into a star schema, and serves it through SQL analytics and a
 Streamlit dashboard - orchestrated by Apache Airflow.
 
 Built as a portfolio project for Associate/Junior Data Engineer roles.
-See `docs/interview_guide.md` and `docs/resume_description.md` if you're
-evaluating this as a candidate submission.
+See `docs/interview_guide.md` and `docs/resume_description.md` .
 
 ## 1. Project Overview
 
