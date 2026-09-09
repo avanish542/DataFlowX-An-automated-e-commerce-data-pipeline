@@ -1,0 +1,48 @@
+# Environment / secrets
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Airflow
+airflow/logs/
+airflow/airflow.db
+airflow/webserver_config.py
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Data (generated, not committed)
+data/processed/*
+!data/processed/.gitkeep
+data/raw/*.csv
+data/raw/*.json
+!data/raw/.gitkeep
+!data/sample/README.md
+
+# Logs
+logs/
+*.log
+
+# Local DB
+db/seeds/*
+!db/seeds/.gitkeep
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

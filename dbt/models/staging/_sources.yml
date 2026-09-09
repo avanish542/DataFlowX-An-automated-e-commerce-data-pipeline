@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Bronze layer - data loaded by the Python ingestion service with minimal changes.
+    tables:
+      - name: customers
+      - name: products
+      - name: stores
+      - name: orders
+      - name: order_items
+      - name: payments

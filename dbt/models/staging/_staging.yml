@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: One row per customer, lightly cleaned (trimmed names, lowercased email).
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: email
+        tests: [not_null]
+
+  - name: stg_products
+    description: One row per product in the catalog.
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+      - name: price
+        tests:
+          - not_null
+
+  - name: stg_stores
+    description: One row per store/seller.
+    columns:
+      - name: store_id
+        tests: [not_null, unique]
+
+  - name: stg_orders
+    description: One row per order.
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+
+  - name: stg_order_items
+    description: One row per product line item within an order.
+    columns:
+      - name: order_item_id
+        tests: [not_null, unique]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+              # Orders that failed validation (e.g. an unparseable order_date)
+              # are rejected before they reach raw.orders, but their
+              # order_items rows can still exist. This is expected and is
+              # already caught as a non-critical warning by the Python data
+              # quality check (orphan_order_items in data_quality.py), so we
+              # don't fail the whole dbt build over it - just warn.
+              config:
+                severity: warn
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+      - name: quantity
+        tests:
+          - not_null
+
+  - name: stg_payments
+    description: One row per payment attempt against an order.
+    columns:
+      - name: payment_id
+        tests: [not_null, unique]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+              config:
+                severity: warn
+      - name: payment_status
+        tests:
+          - accepted_values:
+              values: ["success", "failed", "pending", "refunded"]

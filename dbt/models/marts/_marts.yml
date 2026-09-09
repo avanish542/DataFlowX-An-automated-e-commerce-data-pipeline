@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Customer dimension. One row per customer.
+    columns:
+      - name: customer_key
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null, unique]
+
+  - name: dim_product
+    description: Product dimension. One row per product.
+    columns:
+      - name: product_key
+        tests: [not_null, unique]
+      - name: product_id
+        tests: [not_null, unique]
+
+  - name: dim_store
+    description: Store/seller dimension. One row per store.
+    columns:
+      - name: store_key
+        tests: [not_null, unique]
+      - name: store_id
+        tests: [not_null, unique]
+
+  - name: dim_date
+    description: Standard calendar date dimension.
+    columns:
+      - name: date_key
+        tests: [not_null, unique]
+      - name: full_date
+        tests: [not_null, unique]
+
+  - name: fact_sales
+    description: >
+      Sales fact table. Grain: one row per product line item within one
+      order. See docs/database_design.md for the full grain definition.
+    columns:
+      - name: sale_id
+        tests: [not_null, unique]
+      - name: order_item_id
+        tests: [not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_key
+      - name: product_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: quantity
+        tests:
+          - not_null
+      - name: total_amount
+        tests:
+          - not_null

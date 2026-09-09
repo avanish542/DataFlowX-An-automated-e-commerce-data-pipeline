@@ -1,0 +1,114 @@
+# DataFlowX Docker services.
+#
+# Default: use an existing PostgreSQL server on the host machine.
+# Dockerized PostgreSQL is optional via the `docker-db` Compose profile.
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: UTC
+    DATABASE_HOST: ${DOCKER_DATABASE_HOST}
+    DATABASE_PORT: ${DATABASE_PORT}
+    DATABASE_NAME: ${DATABASE_NAME}
+    DATABASE_USER: ${DATABASE_USER}
+    DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+    RAW_DATA_DIR: /opt/airflow/data/raw
+    DBT_PROFILES_DIR: /opt/airflow/dbt-profile
+    AIRFLOW_DB_HOST: ${AIRFLOW_DB_HOST}
+    AIRFLOW_DB_PORT: ${AIRFLOW_DB_PORT}
+    AIRFLOW_DB_NAME: ${AIRFLOW_DB_NAME}
+    AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
+    AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    AIRFLOW_DB_MAINTENANCE_DB: ${AIRFLOW_DB_MAINTENANCE_DB}
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./dbt:/opt/airflow/dbt
+    - ./data:/opt/airflow/data
+    - airflow_logs:/opt/airflow/logs
+
+services:
+  # Optional. This service is not started by default, so it cannot steal
+  # port 5432 from a PostgreSQL installation already running on the host.
+  postgres:
+    profiles: ["docker-db"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  airflow-init:
+    <<: *airflow-common
+    command:
+      - bash
+      - -c
+      - |
+        python /opt/airflow/init_airflow_db.py
+        airflow db migrate
+        airflow users create \
+          --username "${AIRFLOW_ADMIN_USERNAME}" \
+          --password "${AIRFLOW_ADMIN_PASSWORD}" \
+          --firstname "${AIRFLOW_ADMIN_FIRSTNAME}" \
+          --lastname "${AIRFLOW_ADMIN_LASTNAME}" \
+          --role Admin --email "${AIRFLOW_ADMIN_EMAIL}" || true
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: streamlit
+    command: ["run", "dashboard/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    environment:
+      DATABASE_HOST: ${DOCKER_DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./dashboard:/app/dashboard
+      - ./src:/app/src
+
+volumes:
+  postgres_data:
+  airflow_logs:
